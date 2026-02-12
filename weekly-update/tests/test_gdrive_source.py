@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 from sources.gdrive import fetch_recent_docs, _get_old_revision_text, _compute_diff
 
 
-def _mock_drive_service(files_list_result):
+def _mock_drive_service(files_list_result, export_content=b"Document text content here", revisions=None):
     """Helper to create a mock Google Drive service."""
     service = MagicMock()
     files_mock = MagicMock()
@@ -11,10 +11,24 @@ def _mock_drive_service(files_list_result):
     files_mock.list.return_value = list_mock
     list_mock.execute.return_value = files_list_result
 
-    # Mock export for Docs
+    # Mock export for Docs (current content)
     export_mock = MagicMock()
     files_mock.export.return_value = export_mock
-    export_mock.execute.return_value = b"Document text content here"
+    export_mock.execute.return_value = export_content
+
+    # Mock revisions API
+    revisions_mock = MagicMock()
+    service.revisions.return_value = revisions_mock
+    rev_list_mock = MagicMock()
+    revisions_mock.list.return_value = rev_list_mock
+    if revisions is not None:
+        rev_list_mock.execute.return_value = {"revisions": revisions}
+        rev_get_mock = MagicMock()
+        revisions_mock.get.return_value = rev_get_mock
+        rev_get_mock.execute.return_value = b"Old document content"
+    else:
+        # No revisions — simulates new doc
+        rev_list_mock.execute.return_value = {"revisions": []}
 
     return service
 
@@ -31,15 +45,22 @@ def _mock_sheets_service(values):
     return service
 
 
-def test_fetch_recent_docs_google_doc():
-    drive_service = _mock_drive_service({
-        "files": [{
-            "id": "doc123",
-            "name": "Q1 Roadmap",
-            "mimeType": "application/vnd.google-apps.document",
-            "modifiedTime": "2026-02-10T12:00:00Z",
-        }],
-    })
+def test_fetch_recent_docs_google_doc_with_diff():
+    """Google Doc with an old revision should return a diff."""
+    drive_service = _mock_drive_service(
+        files_list_result={
+            "files": [{
+                "id": "doc123",
+                "name": "Q1 Roadmap",
+                "mimeType": "application/vnd.google-apps.document",
+                "modifiedTime": "2026-02-10T12:00:00Z",
+            }],
+        },
+        export_content=b"Line one\nLine two changed\nLine three",
+        revisions=[
+            {"id": "rev1", "modifiedTime": "2026-01-15T10:00:00Z"},
+        ],
+    )
 
     results = fetch_recent_docs(
         drive_service=drive_service,
@@ -50,18 +71,49 @@ def test_fetch_recent_docs_google_doc():
 
     assert len(results) == 1
     assert results[0]["name"] == "Q1 Roadmap"
-    assert results[0]["content"] == "Document text content here"
+    assert results[0]["content_type"] == "diff"
+    assert "---" in results[0]["content"]  # unified diff header
+
+
+def test_fetch_recent_docs_new_google_doc_full_content():
+    """Google Doc with no old revision should return full content."""
+    drive_service = _mock_drive_service(
+        files_list_result={
+            "files": [{
+                "id": "doc123",
+                "name": "New Doc",
+                "mimeType": "application/vnd.google-apps.document",
+                "modifiedTime": "2026-02-10T12:00:00Z",
+            }],
+        },
+        export_content=b"Brand new document content",
+        revisions=[],  # No revisions before cutoff
+    )
+
+    results = fetch_recent_docs(
+        drive_service=drive_service,
+        sheets_service=None,
+        folder_ids=["folder_abc"],
+        lookback_days=7,
+    )
+
+    assert len(results) == 1
+    assert results[0]["name"] == "New Doc"
+    assert results[0]["content_type"] == "full"
+    assert results[0]["content"] == "Brand new document content"
 
 
 def test_fetch_recent_docs_google_sheet():
-    drive_service = _mock_drive_service({
-        "files": [{
-            "id": "sheet456",
-            "name": "Sprint Tracker",
-            "mimeType": "application/vnd.google-apps.spreadsheet",
-            "modifiedTime": "2026-02-09T08:00:00Z",
-        }],
-    })
+    drive_service = _mock_drive_service(
+        files_list_result={
+            "files": [{
+                "id": "sheet456",
+                "name": "Sprint Tracker",
+                "mimeType": "application/vnd.google-apps.spreadsheet",
+                "modifiedTime": "2026-02-09T08:00:00Z",
+            }],
+        },
+    )
     sheets_service = _mock_sheets_service([
         ["Task", "Status"],
         ["Build API", "Done"],
@@ -77,6 +129,7 @@ def test_fetch_recent_docs_google_sheet():
 
     assert len(results) == 1
     assert results[0]["name"] == "Sprint Tracker"
+    assert results[0]["content_type"] == "full"
     assert "Build API" in results[0]["content"]
 
 
