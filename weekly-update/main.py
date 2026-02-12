@@ -34,7 +34,8 @@ def run(config, slack_client, drive_service, sheets_service, anthropic_client):
         lookback_days=lookback,
     )
     for doc in gdrive_data:
-        print(f"  Found: {doc['name']} (modified {doc['modified_time'][:10]})")
+        label = "diff" if doc.get("content_type") == "diff" else "full content"
+        print(f"  Found: {doc['name']} ({label}, modified {doc['modified_time'][:10]})")
     if not gdrive_data:
         print("  No recently modified docs found.")
 
