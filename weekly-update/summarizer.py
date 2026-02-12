@@ -27,7 +27,10 @@ def build_prompt(
 
     # Add Google Drive data
     for doc in gdrive_data:
-        header = f'=== GOOGLE DOC: "{doc["name"]}" (modified {doc["modified_time"][:10]}) ==='
+        if doc.get("content_type") == "diff":
+            header = f'=== GOOGLE DOC: "{doc["name"]}" (changes from last {lookback_days} days) ==='
+        else:
+            header = f'=== GOOGLE DOC: "{doc["name"]}" (modified {doc["modified_time"][:10]}) ==='
         sources_parts.append(f"{header}\n{doc['content']}")
 
     if not sources_parts:
