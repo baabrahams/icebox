@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock, patch
-from sources.gdrive import fetch_recent_docs
+from sources.gdrive import fetch_recent_docs, _get_old_revision_text, _compute_diff
 
 
 def _mock_drive_service(files_list_result):
@@ -91,3 +91,87 @@ def test_fetch_recent_docs_empty_folder():
     )
 
     assert results == []
+
+
+def test_get_old_revision_text_finds_revision_before_cutoff():
+    """Should find the most recent revision before the cutoff and export its text."""
+    service = MagicMock()
+    files_mock = MagicMock()
+    service.files.return_value = files_mock
+
+    # Mock revisions().list()
+    revisions_mock = MagicMock()
+    service.revisions.return_value = revisions_mock
+    list_mock = MagicMock()
+    revisions_mock.list.return_value = list_mock
+    list_mock.execute.return_value = {
+        "revisions": [
+            {"id": "rev1", "modifiedTime": "2026-01-20T10:00:00Z"},
+            {"id": "rev2", "modifiedTime": "2026-02-03T10:00:00Z"},
+            {"id": "rev3", "modifiedTime": "2026-02-08T10:00:00Z"},
+        ],
+    }
+
+    # Mock revisions().get() with media download
+    get_mock = MagicMock()
+    revisions_mock.get.return_value = get_mock
+    get_mock.execute.return_value = b"Old document content"
+
+    # Cutoff is Feb 4 — rev2 (Feb 3) is the most recent before cutoff
+    result = _get_old_revision_text(service, "doc123", lookback_days=7)
+
+    assert result == "Old document content"
+    revisions_mock.get.assert_called_once_with(
+        fileId="doc123", revisionId="rev2", alt="media",
+    )
+
+
+def test_get_old_revision_text_no_revision_before_cutoff():
+    """If all revisions are within the lookback period, return None (doc is new)."""
+    service = MagicMock()
+    revisions_mock = MagicMock()
+    service.revisions.return_value = revisions_mock
+    list_mock = MagicMock()
+    revisions_mock.list.return_value = list_mock
+    list_mock.execute.return_value = {
+        "revisions": [
+            {"id": "rev1", "modifiedTime": "2026-02-08T10:00:00Z"},
+            {"id": "rev2", "modifiedTime": "2026-02-10T10:00:00Z"},
+        ],
+    }
+
+    result = _get_old_revision_text(service, "doc123", lookback_days=7)
+
+    assert result is None
+
+
+def test_get_old_revision_text_api_error_returns_none():
+    """If the Revisions API fails, return None gracefully."""
+    service = MagicMock()
+    revisions_mock = MagicMock()
+    service.revisions.return_value = revisions_mock
+    list_mock = MagicMock()
+    revisions_mock.list.return_value = list_mock
+    list_mock.execute.side_effect = Exception("Revisions API error")
+
+    result = _get_old_revision_text(service, "doc123", lookback_days=7)
+
+    assert result is None
+
+
+def test_compute_diff_returns_unified_diff():
+    old_text = "Line one\nLine two\nLine three"
+    new_text = "Line one\nLine two modified\nLine three\nLine four added"
+
+    diff = _compute_diff(old_text, new_text)
+
+    assert "-Line two" in diff
+    assert "+Line two modified" in diff
+    assert "+Line four added" in diff
+
+
+def test_compute_diff_no_changes_returns_empty():
+    text = "Line one\nLine two"
+    diff = _compute_diff(text, text)
+
+    assert diff == ""
