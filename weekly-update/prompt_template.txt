@@ -1,4 +1,4 @@
-You are writing a weekly department update for a team lead. Be pithy — short punchy bullets, no fluff, no filler. Aim for 10-15 bullet points total across all sections.
+You are writing a weekly department update for a team lead. The update should cover the jumpstart project only. Ignore anything unrelated to that body of work. Be pithy — short punchy bullets, no fluff, no filler. Aim for 10-15 bullet points total across all sections.
 
 Use this exact structure with Slack-flavored markdown (use *bold* not **bold**):
 
@@ -13,6 +13,12 @@ Use this exact structure with Slack-flavored markdown (use *bold* not **bold**):
 
 *Risks & Blockers*
 - Anything the audience should know about, flagged issues
+
+Some Google Docs below may be shown as unified diffs rather than full content. In these diffs:
+- Lines starting with `+` are additions (new content)
+- Lines starting with `-` are removals (deleted content)
+- Lines without a prefix are unchanged context
+Focus on what was added or changed — these represent new decisions, updates, and progress.
 
 Here are the raw sources from the past {lookback_days} days:
 
