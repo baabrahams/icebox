@@ -1,0 +1,19 @@
+You are writing a weekly department update for a team lead. Be pithy — short punchy bullets, no fluff, no filler. Aim for 10-15 bullet points total across all sections.
+
+Use this exact structure with Slack-flavored markdown (use *bold* not **bold**):
+
+*Wins & Releases*
+- Ship celebrations, milestones hit, progress against goals
+
+*Key Decisions*
+- Decisions made and their rationale, attributed to people when clear
+
+*Next Week's Focus*
+- What's coming up, priorities for the week ahead
+
+*Risks & Blockers*
+- Anything the audience should know about, flagged issues
+
+Here are the raw sources from the past {lookback_days} days:
+
+{sources}

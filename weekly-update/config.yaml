@@ -1,0 +1,12 @@
+slack:
+  channels:
+    - "#engineering"
+    - "#product"
+    - "#launches"
+  my_user_id: "U12345678"
+
+google:
+  folder_ids:
+    - "1aBcDeFgHiJkLmNoPqRsTuVwXyZ"
+
+lookback_days: 7
