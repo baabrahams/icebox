@@ -104,6 +104,7 @@ def test_fetch_recent_docs_new_google_doc_full_content():
 
 
 def test_fetch_recent_docs_google_sheet():
+    """Sheet with no snapshot should return full content (first run)."""
     drive_service = _mock_drive_service(
         files_list_result={
             "files": [{
@@ -114,6 +115,27 @@ def test_fetch_recent_docs_google_sheet():
             }],
         },
     )
+    # Mock appDataFolder calls — no snapshot exists
+    original_list = drive_service.files().list
+    def list_side_effect(**kwargs):
+        mock = MagicMock()
+        if "appDataFolder" in kwargs.get("spaces", ""):
+            mock.execute.return_value = {"files": []}
+        else:
+            mock.execute.return_value = {
+                "files": [{
+                    "id": "sheet456",
+                    "name": "Sprint Tracker",
+                    "mimeType": "application/vnd.google-apps.spreadsheet",
+                    "modifiedTime": "2026-02-09T08:00:00Z",
+                }],
+            }
+        return mock
+    drive_service.files().list.side_effect = list_side_effect
+
+    # Mock create for saving new snapshot
+    drive_service.files().create.return_value.execute.return_value = {"id": "new_snap"}
+
     sheets_service = _mock_sheets_service([
         ["Task", "Status"],
         ["Build API", "Done"],
@@ -228,3 +250,69 @@ def test_compute_diff_no_changes_returns_empty():
     diff = _compute_diff(text, text)
 
     assert diff == ""
+
+
+def test_fetch_recent_docs_sheet_with_diff():
+    """Sheet with an existing snapshot should return a row-level diff."""
+    drive_service = _mock_drive_service(
+        files_list_result={
+            "files": [{
+                "id": "sheet456",
+                "name": "Sprint Tracker",
+                "mimeType": "application/vnd.google-apps.spreadsheet",
+                "modifiedTime": "2026-02-09T08:00:00Z",
+            }],
+        },
+    )
+    # Mock appDataFolder snapshot lookup — snapshot exists
+    snapshot_data = {
+        "sheet_id": "sheet456",
+        "captured_at": "2026-02-02T12:00:00Z",
+        "rows": [
+            ["Task", "Status"],
+            ["Build API", "In Progress"],
+        ],
+    }
+    import json
+    # Override the files().list() to return different results based on call
+    original_list = drive_service.files().list
+    def list_side_effect(**kwargs):
+        mock = MagicMock()
+        if "appDataFolder" in kwargs.get("spaces", ""):
+            mock.execute.return_value = {"files": [{"id": "snap_123"}]}
+        else:
+            mock.execute.return_value = {
+                "files": [{
+                    "id": "sheet456",
+                    "name": "Sprint Tracker",
+                    "mimeType": "application/vnd.google-apps.spreadsheet",
+                    "modifiedTime": "2026-02-09T08:00:00Z",
+                }],
+            }
+        return mock
+    drive_service.files().list.side_effect = list_side_effect
+
+    # Mock get_media for snapshot download
+    get_media_mock = MagicMock()
+    drive_service.files().get_media.return_value = get_media_mock
+    get_media_mock.execute.return_value = json.dumps(snapshot_data).encode("utf-8")
+
+    # Mock create/update for saving snapshot
+    drive_service.files().update.return_value.execute.return_value = {"id": "snap_123"}
+
+    sheets_service = _mock_sheets_service([
+        ["Task", "Status"],
+        ["Build API", "Done"],
+    ])
+
+    results = fetch_recent_docs(
+        drive_service=drive_service,
+        sheets_service=sheets_service,
+        folder_ids=["folder_abc"],
+        lookback_days=7,
+    )
+
+    assert len(results) == 1
+    assert results[0]["name"] == "Sprint Tracker"
+    assert results[0]["content_type"] == "diff"
+    assert '"Status" changed from "In Progress" to "Done"' in results[0]["content"]

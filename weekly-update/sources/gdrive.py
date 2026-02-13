@@ -50,13 +50,13 @@ def fetch_recent_docs(
 
 
 def _process_file(drive_service, sheets_service, file_info: dict, lookback_days: int) -> dict | None:
-    """Process a single file — diff for Docs, full content for Sheets."""
+    """Process a single file — diff for Docs, diff for Sheets (with snapshot)."""
     mime = file_info["mimeType"]
 
     if mime == "application/vnd.google-apps.document":
         return _process_google_doc(drive_service, file_info, lookback_days)
     elif mime == "application/vnd.google-apps.spreadsheet":
-        return _process_google_sheet(sheets_service, file_info)
+        return _process_google_sheet(drive_service, sheets_service, file_info)
     return None
 
 
@@ -96,23 +96,50 @@ def _process_google_doc(drive_service, file_info: dict, lookback_days: int) -> d
         }
 
 
-def _process_google_sheet(sheets_service, file_info: dict) -> dict | None:
-    """Fetch full Sheet content (no diffing)."""
+def _process_google_sheet(drive_service, sheets_service, file_info: dict) -> dict | None:
+    """Fetch Sheet content, diff against snapshot if available, save new snapshot."""
     if not sheets_service:
         print(f"  Warning: Sheets service not available, skipping {file_info['name']}")
         return None
+
+    sheet_id = file_info["id"]
+
+    # Get current data
     resp = sheets_service.spreadsheets().values().get(
-        spreadsheetId=file_info["id"],
+        spreadsheetId=sheet_id,
         range="A:ZZ",
     ).execute()
-    rows = resp.get("values", [])
-    return {
-        "name": file_info["name"],
-        "content": "\n".join(["\t".join(row) for row in rows]),
-        "modified_time": file_info["modifiedTime"],
-        "mime_type": file_info["mimeType"],
-        "content_type": "full",
-    }
+    current_rows = resp.get("values", [])
+
+    if not current_rows:
+        return None
+
+    # Try to load previous snapshot
+    old_rows = _load_sheet_snapshot(drive_service, sheet_id)
+
+    # Save current data as new snapshot (do this regardless of diff result)
+    _save_sheet_snapshot(drive_service, sheet_id, current_rows)
+
+    if old_rows is not None:
+        diff = _compute_sheet_diff(old_rows, current_rows)
+        if not diff:
+            return None  # No changes
+        return {
+            "name": file_info["name"],
+            "content": diff,
+            "modified_time": file_info["modifiedTime"],
+            "mime_type": file_info["mimeType"],
+            "content_type": "diff",
+        }
+    else:
+        # No snapshot — first run for this sheet, send full content
+        return {
+            "name": file_info["name"],
+            "content": "\n".join(["\t".join(row) for row in current_rows]),
+            "modified_time": file_info["modifiedTime"],
+            "mime_type": file_info["mimeType"],
+            "content_type": "full",
+        }
 
 
 def _get_old_revision_text(drive_service, file_id: str, lookback_days: int) -> str | None:
