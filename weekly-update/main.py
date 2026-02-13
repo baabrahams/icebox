@@ -8,7 +8,7 @@ from datetime import datetime
 from config import load_config
 from sources.slack import fetch_channel_messages
 from sources.gdrive import fetch_recent_docs
-from summarizer import build_prompt, generate_summary
+from summarizer import extract_items, generate_summary
 from delivery import send_dm
 from google_auth import get_google_credentials
 
@@ -37,7 +37,7 @@ def run(config, slack_client, drive_service, sheets_service, anthropic_client):
                     rpreview = f"[{rts}] {reply['author']}: {reply['text']}"
                     if len(rpreview) > 76:
                         rpreview = rpreview[:73] + "..."
-                    print(f"      \u21b3 {rpreview}")
+                    print(f"      ↳ {rpreview}")
         else:
             print(f"  {channel}: no messages, skipping.")
 
@@ -55,17 +55,23 @@ def run(config, slack_client, drive_service, sheets_service, anthropic_client):
     if not gdrive_data:
         print("  No recently modified docs found.")
 
-    # 3. Build prompt and generate summary
-    print("Generating weekly update with Claude...")
-    prompt = build_prompt(
+    # 3. Extract notable items (Pass 1)
+    print("Extracting notable items from sources...")
+    extraction = extract_items(
+        client=anthropic_client,
         slack_data=slack_data,
         gdrive_data=gdrive_data,
-        template_path="prompt_template.txt",
         lookback_days=lookback,
     )
-    summary = generate_summary(anthropic_client, prompt)
+    print("--- Extracted items ---")
+    print(extraction)
+    print("--- End extracted items ---")
 
-    # 4. Send DM
+    # 4. Generate summary (Pass 2)
+    print("Generating weekly update from extracted items...")
+    summary = generate_summary(anthropic_client, extraction)
+
+    # 5. Send DM
     print("Sending draft to Slack DM...")
     send_dm(slack_client, user_id=config["slack"]["my_user_id"], message=summary)
     print("Done! Check your Slack DMs for the weekly update draft.")
