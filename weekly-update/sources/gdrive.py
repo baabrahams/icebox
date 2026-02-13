@@ -251,3 +251,86 @@ def _save_sheet_snapshot(drive_service, sheet_id: str, rows: list[list[str]]) ->
             ).execute()
     except Exception as e:
         print(f"  Warning: Could not save sheet snapshot: {e}")
+
+
+def _compute_sheet_diff(old_rows: list[list[str]], new_rows: list[list[str]]) -> str:
+    """Compute a row-level diff between old and new sheet data.
+
+    Matches rows by first column value. Falls back to positional matching
+    for duplicate first-column values. Returns empty string if no changes.
+    """
+    if not old_rows and not new_rows:
+        return ""
+
+    # Get headers from whichever has them
+    headers = new_rows[0] if new_rows else old_rows[0] if old_rows else []
+
+    # Build lookup from first column to rows
+    def build_row_map(rows):
+        row_map = {}
+        duplicates = set()
+        for i, row in enumerate(rows):
+            if not row:
+                continue
+            key = row[0]
+            if key in row_map:
+                duplicates.add(key)
+            row_map.setdefault(key, []).append((i, row))
+        return row_map, duplicates
+
+    old_map, old_dupes = build_row_map(old_rows)
+    new_map, new_dupes = build_row_map(new_rows)
+    all_dupes = old_dupes | new_dupes
+
+    changes = []
+
+    # Find changed and removed rows (iterate old rows)
+    matched_new_keys = set()
+    for key, old_entries in old_map.items():
+        if key in all_dupes:
+            # Positional matching for duplicates
+            new_entries = new_map.get(key, [])
+            for idx, (old_i, old_row) in enumerate(old_entries):
+                if idx < len(new_entries):
+                    new_i, new_row = new_entries[idx]
+                    _compare_rows(old_row, new_row, old_i, headers, changes)
+                else:
+                    changes.append(f"Row {old_i + 1} removed: {old_row}")
+            matched_new_keys.add(key)
+        elif key in new_map:
+            # Unique key — match by first column
+            old_row = old_entries[0][1]
+            new_i, new_row = new_map[key][0]
+            _compare_rows(old_row, new_row, new_i, headers, changes)
+            matched_new_keys.add(key)
+        else:
+            # Row removed
+            old_i, old_row = old_entries[0]
+            changes.append(f"Row {old_i + 1} removed: {old_row}")
+
+    # Find added rows (in new but not matched)
+    for key, new_entries in new_map.items():
+        if key in matched_new_keys:
+            if key in all_dupes:
+                # Check for extra new entries beyond what was matched positionally
+                old_count = len(old_map.get(key, []))
+                for idx in range(old_count, len(new_entries)):
+                    new_i, new_row = new_entries[idx]
+                    changes.append(f"Row {new_i + 1} added: {new_row}")
+            continue
+        for new_i, new_row in new_entries:
+            changes.append(f"Row {new_i + 1} added: {new_row}")
+
+    return "\n".join(changes)
+
+
+def _compare_rows(old_row: list[str], new_row: list[str], row_num: int, headers: list[str], changes: list[str]) -> None:
+    """Compare two rows and append change descriptions to the changes list."""
+    row_key = old_row[0] if old_row else new_row[0] if new_row else ""
+    max_cols = max(len(old_row), len(new_row))
+    for col_idx in range(max_cols):
+        old_val = old_row[col_idx] if col_idx < len(old_row) else ""
+        new_val = new_row[col_idx] if col_idx < len(new_row) else ""
+        if old_val != new_val:
+            col_name = headers[col_idx] if col_idx < len(headers) else f"Column {col_idx + 1}"
+            changes.append(f'Row {row_num + 1} ({row_key}): "{col_name}" changed from "{old_val}" to "{new_val}"')
