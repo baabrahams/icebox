@@ -23,6 +23,9 @@ def build_prompt(
         for msg in messages:
             ts = datetime.fromtimestamp(float(msg["timestamp"])).strftime("%Y-%m-%d %H:%M")
             lines.append(f"[{ts}] {msg['author']}: {msg['text']}")
+            for reply in msg.get("replies", []):
+                rts = datetime.fromtimestamp(float(reply["timestamp"])).strftime("%Y-%m-%d %H:%M")
+                lines.append(f"  ↳ [{rts}] {reply['author']}: {reply['text']}")
         sources_parts.append("\n".join(lines))
 
     # Add Google Drive data

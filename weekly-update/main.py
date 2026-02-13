@@ -24,14 +24,20 @@ def run(config, slack_client, drive_service, sheets_service, anthropic_client):
         messages = fetch_channel_messages(slack_client, channel, lookback_days=lookback)
         if messages:
             slack_data[channel] = messages
-            print(f"  {channel}: {len(messages)} messages")
+            total = len(messages) + sum(len(m.get("replies", [])) for m in messages)
+            print(f"  {channel}: {len(messages)} messages ({total} including thread replies)")
             for msg in messages:
                 ts = datetime.fromtimestamp(float(msg["timestamp"])).strftime("%b %d %H:%M")
-                text = msg["text"]
-                preview = f"[{ts}] {msg['author']}: {text}"
+                preview = f"[{ts}] {msg['author']}: {msg['text']}"
                 if len(preview) > 80:
                     preview = preview[:77] + "..."
                 print(f"    {preview}")
+                for reply in msg.get("replies", []):
+                    rts = datetime.fromtimestamp(float(reply["timestamp"])).strftime("%b %d %H:%M")
+                    rpreview = f"[{rts}] {reply['author']}: {reply['text']}"
+                    if len(rpreview) > 76:
+                        rpreview = rpreview[:73] + "..."
+                    print(f"      \u21b3 {rpreview}")
         else:
             print(f"  {channel}: no messages, skipping.")
 

@@ -35,24 +35,49 @@ def fetch_channel_messages(client, channel_name: str, lookback_days: int = 7) ->
 
     # Resolve user IDs to names (cache to avoid repeat lookups)
     user_cache = {}
-    results = []
-    for msg in messages:
-        if msg.get("subtype"):
-            continue  # Skip bot messages, join/leave, etc.
 
-        user_id = msg.get("user", "")
+    def resolve_user(user_id):
         if user_id not in user_cache:
             try:
                 info = client.users_info(user=user_id)
                 user_cache[user_id] = info["user"]["real_name"]
             except Exception:
                 user_cache[user_id] = user_id
+        return user_cache[user_id]
 
-        results.append({
-            "author": user_cache[user_id],
+    results = []
+    for msg in messages:
+        if msg.get("subtype"):
+            continue  # Skip bot messages, join/leave, etc.
+
+        user_id = msg.get("user", "")
+        parent = {
+            "author": resolve_user(user_id),
             "text": msg["text"],
             "timestamp": msg["ts"],
-        })
+            "replies": [],
+        }
+
+        # Fetch thread replies if this message has them
+        if msg.get("reply_count", 0) > 0:
+            try:
+                thread_resp = client.conversations_replies(
+                    channel=channel_id, ts=msg["ts"], limit=1000,
+                )
+                thread_msgs = thread_resp.get("messages", [])
+                for reply in thread_msgs[1:]:  # Skip first message (it's the parent)
+                    if reply.get("subtype"):
+                        continue
+                    reply_user = reply.get("user", "")
+                    parent["replies"].append({
+                        "author": resolve_user(reply_user),
+                        "text": reply["text"],
+                        "timestamp": reply["ts"],
+                    })
+            except Exception:
+                pass  # If thread fetch fails, keep the parent without replies
+
+        results.append(parent)
 
     # Sort chronologically (oldest first)
     results.sort(key=lambda m: float(m["timestamp"]))
