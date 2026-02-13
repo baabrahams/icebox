@@ -1,21 +1,20 @@
-"""Generate weekly update via Claude API."""
+"""Generate weekly update via Claude API using two-pass extract-then-summarize."""
 
+import os
 from datetime import datetime
 
+EXTRACTION_TEMPLATE = os.path.join(os.path.dirname(__file__), "extraction_prompt.txt")
+SUMMARY_TEMPLATE = os.path.join(os.path.dirname(__file__), "prompt_template.txt")
 
-def build_prompt(
+
+def _format_sources(
     slack_data: dict[str, list[dict]],
     gdrive_data: list[dict],
-    template_path: str,
     lookback_days: int,
 ) -> str:
-    """Build the full prompt from Slack messages and Google Drive docs."""
-    with open(template_path) as f:
-        template = f.read()
-
+    """Format raw Slack and Google Drive data into labeled source text."""
     sources_parts = []
 
-    # Add Slack data
     for channel, messages in slack_data.items():
         if not messages:
             continue
@@ -28,7 +27,6 @@ def build_prompt(
                 lines.append(f"  ↳ [{rts}] {reply['author']}: {reply['text']}")
         sources_parts.append("\n".join(lines))
 
-    # Add Google Drive data
     for doc in gdrive_data:
         if doc.get("content_type") == "diff":
             if doc.get("mime_type") == "application/vnd.google-apps.spreadsheet":
@@ -43,15 +41,51 @@ def build_prompt(
         sources_parts.append(f"{header}\n{doc['content']}")
 
     if not sources_parts:
-        sources_text = "(No Slack messages or Google Docs found for this period.)"
-    else:
-        sources_text = "\n\n".join(sources_parts)
+        return "(No Slack messages or Google Docs found for this period.)"
+    return "\n\n".join(sources_parts)
 
+
+def build_extraction_prompt(
+    slack_data: dict[str, list[dict]],
+    gdrive_data: list[dict],
+    lookback_days: int,
+) -> str:
+    """Build the extraction prompt from raw sources."""
+    with open(EXTRACTION_TEMPLATE) as f:
+        template = f.read()
+
+    sources_text = _format_sources(slack_data, gdrive_data, lookback_days)
     return template.replace("{lookback_days}", str(lookback_days)).replace("{sources}", sources_text)
 
 
-def generate_summary(client, prompt: str) -> str:
-    """Call Claude API to generate the weekly update."""
+def build_summary_prompt(extracted_items: str) -> str:
+    """Build the summary prompt from extracted items."""
+    with open(SUMMARY_TEMPLATE) as f:
+        template = f.read()
+
+    return template.replace("{extracted_items}", extracted_items)
+
+
+def extract_items(
+    client,
+    slack_data: dict[str, list[dict]],
+    gdrive_data: list[dict],
+    lookback_days: int,
+) -> str:
+    """Pass 1: Extract and rank all notable items from raw sources."""
+    prompt = build_extraction_prompt(slack_data, gdrive_data, lookback_days)
+    response = client.messages.create(
+        model="claude-sonnet-4-5-20250929",
+        max_tokens=2048,
+        temperature=0,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text
+
+
+def generate_summary(client, extracted_items: str) -> str:
+    """Pass 2: Generate the weekly update from extracted items."""
+    prompt = build_summary_prompt(extracted_items)
     response = client.messages.create(
         model="claude-sonnet-4-5-20250929",
         max_tokens=2048,

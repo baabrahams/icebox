@@ -1,8 +1,8 @@
-from unittest.mock import MagicMock, patch
-from summarizer import build_prompt, generate_summary
+from unittest.mock import MagicMock
+from summarizer import build_extraction_prompt, build_summary_prompt, extract_items, generate_summary
 
 
-def test_build_prompt_includes_slack_and_docs():
+def test_build_extraction_prompt_includes_slack_and_docs():
     slack_data = {
         "#engineering": [
             {"author": "Alice", "text": "Shipped v2.0", "timestamp": "1707500000"},
@@ -17,10 +17,9 @@ def test_build_prompt_includes_slack_and_docs():
         },
     ]
 
-    prompt = build_prompt(
+    prompt = build_extraction_prompt(
         slack_data=slack_data,
         gdrive_data=gdrive_data,
-        template_path="prompt_template.txt",
         lookback_days=7,
     )
 
@@ -29,11 +28,10 @@ def test_build_prompt_includes_slack_and_docs():
     assert "Shipped v2.0" in prompt
     assert '=== GOOGLE DOC: "Q1 Roadmap"' in prompt
     assert "Launch feature X by March" in prompt
+    assert "CATEGORY:RANK" in prompt  # extraction instructions present
 
 
-def test_build_prompt_labels_diff_content():
-    """Docs with content_type='diff' should be labeled as changes."""
-    slack_data = {}
+def test_build_extraction_prompt_labels_diff_content():
     gdrive_data = [
         {
             "name": "Q1 Roadmap",
@@ -43,10 +41,9 @@ def test_build_prompt_labels_diff_content():
         },
     ]
 
-    prompt = build_prompt(
-        slack_data=slack_data,
+    prompt = build_extraction_prompt(
+        slack_data={},
         gdrive_data=gdrive_data,
-        template_path="prompt_template.txt",
         lookback_days=7,
     )
 
@@ -54,9 +51,7 @@ def test_build_prompt_labels_diff_content():
     assert "+new line" in prompt
 
 
-def test_build_prompt_labels_full_content():
-    """Docs with content_type='full' should be labeled with modified date."""
-    slack_data = {}
+def test_build_extraction_prompt_labels_full_content():
     gdrive_data = [
         {
             "name": "New Doc",
@@ -66,10 +61,9 @@ def test_build_prompt_labels_full_content():
         },
     ]
 
-    prompt = build_prompt(
-        slack_data=slack_data,
+    prompt = build_extraction_prompt(
+        slack_data={},
         gdrive_data=gdrive_data,
-        template_path="prompt_template.txt",
         lookback_days=7,
     )
 
@@ -77,33 +71,17 @@ def test_build_prompt_labels_full_content():
     assert "Full document text here" in prompt
 
 
-def test_build_prompt_empty_sources():
-    prompt = build_prompt(
+def test_build_extraction_prompt_empty_sources():
+    prompt = build_extraction_prompt(
         slack_data={},
         gdrive_data=[],
-        template_path="prompt_template.txt",
         lookback_days=7,
     )
 
     assert "No Slack messages" in prompt or "sources" in prompt.lower()
 
 
-def test_generate_summary_calls_claude():
-    mock_client = MagicMock()
-    mock_client.messages.create.return_value = MagicMock(
-        content=[MagicMock(text="*Wins & Releases*\n- Shipped v2.0")]
-    )
-
-    result = generate_summary(mock_client, "the prompt text")
-
-    mock_client.messages.create.assert_called_once()
-    call_kwargs = mock_client.messages.create.call_args[1]
-    assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
-    assert result == "*Wins & Releases*\n- Shipped v2.0"
-
-
-def test_build_prompt_labels_sheet_diff():
-    """Sheet diffs should be labeled as GOOGLE SHEET with 'changes since last run'."""
+def test_build_extraction_prompt_labels_sheet_diff():
     gdrive_data = [
         {
             "name": "Sprint Tracker",
@@ -114,13 +92,56 @@ def test_build_prompt_labels_sheet_diff():
         },
     ]
 
-    prompt = build_prompt(
+    prompt = build_extraction_prompt(
         slack_data={},
         gdrive_data=gdrive_data,
-        template_path="prompt_template.txt",
         lookback_days=7,
     )
 
     assert 'GOOGLE SHEET: "Sprint Tracker"' in prompt
     assert "changes since last run" in prompt
     assert "changed from" in prompt
+
+
+def test_build_summary_prompt_includes_extracted_items():
+    extracted = "- [WIN:MAJOR] Shipped v2.0\n- [RISK:MINOR] CI flaky"
+
+    prompt = build_summary_prompt(extracted)
+
+    assert "Shipped v2.0" in prompt
+    assert "CI flaky" in prompt
+    assert "EVERY item tagged MAJOR" in prompt  # prioritization rules present
+    assert "*Wins & Releases*" in prompt  # section headers present
+
+
+def test_extract_items_calls_claude_with_temperature_zero():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = MagicMock(
+        content=[MagicMock(text="- [WIN:MAJOR] Shipped v2.0")]
+    )
+
+    result = extract_items(
+        client=mock_client,
+        slack_data={"#eng": [{"author": "A", "text": "hi", "timestamp": "1707500000"}]},
+        gdrive_data=[],
+        lookback_days=7,
+    )
+
+    call_kwargs = mock_client.messages.create.call_args[1]
+    assert call_kwargs["temperature"] == 0
+    assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
+    assert result == "- [WIN:MAJOR] Shipped v2.0"
+
+
+def test_generate_summary_calls_claude():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = MagicMock(
+        content=[MagicMock(text="*Wins & Releases*\n- Shipped v2.0")]
+    )
+
+    result = generate_summary(mock_client, "- [WIN:MAJOR] Shipped v2.0")
+
+    mock_client.messages.create.assert_called_once()
+    call_kwargs = mock_client.messages.create.call_args[1]
+    assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
+    assert result == "*Wins & Releases*\n- Shipped v2.0"
