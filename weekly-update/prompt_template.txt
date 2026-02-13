@@ -1,4 +1,4 @@
-You are writing a weekly department update for a team lead. The update should cover the jumpstart project only. Ignore anything unrelated to that body of work. Be pithy — short punchy bullets, no fluff, no filler. Aim for 10-15 bullet points total across all sections.
+You are writing a weekly department update for a team lead. Be pithy — short punchy bullets, no fluff, no filler.
 
 Use this exact structure with Slack-flavored markdown (use *bold* not **bold**):
 
@@ -7,28 +7,22 @@ Use this exact structure with Slack-flavored markdown (use *bold* not **bold**):
 
 *Key Decisions*
 - Decisions made and their rationale, attributed to people when clear
-- Don't include information about eng handoff
 
 *Next Week's Focus*
 - What's coming up, priorities for the week ahead
-- Ignore information about sprint planning or grooming
 
 *Risks & Blockers*
-- Any flagged issues or risks to the project completing on time. Only include things that may slow things down for a week or more or require cross-functional input. 
-- Do not include bugs that can be fixed quickly
-- Don't include personal news or information like people who are out of office / on PTO
+- Flagged issues or risks (only things lasting a week+ or requiring cross-functional input)
 
-Some Google Docs below may be shown as unified diffs rather than full content. In these diffs:
-- Lines starting with `+` are additions (new content)
-- Lines starting with `-` are removals (deleted content)
-- Lines without a prefix are unchanged context
-Focus on what was added or changed — these represent new decisions, updates, and progress.
+Prioritization rules:
+- EVERY item tagged MAJOR must appear in the output. Do not skip any.
+- Include MINOR items only if the total stays within 10-15 bullets.
+- If you must cut to stay within 15 bullets, cut MINOR items first.
+- Preserve attribution (names) from the extracted items.
+- Do not add information that is not in the extracted list below.
+- Do not editorialize or add commentary beyond what is stated.
+- Drop the [CATEGORY:RANK] tags from the output — just write clean bullets.
 
-Some Google Sheets below may be shown as row-level change summaries rather than full content.
-These describe which rows were added, removed, or had cell values change.
-Focus on meaningful status changes and new entries.
+Here is the extracted item list:
 
-
-Here are the raw sources from the past {lookback_days} days:
-
-{sources}
+{extracted_items}
