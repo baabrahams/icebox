@@ -1,12 +1,10 @@
 slack:
   channels:
-    - "#engineering"
-    - "#product"
-    - "#launches"
-  my_user_id: "U12345678"
+    - "#rep-pod"
+  my_user_id: "U02UH4TC1P1"
 
 google:
   folder_ids:
-    - "1aBcDeFgHiJkLmNoPqRsTuVwXyZ"
+    - "11y_7W86Lu8Fniu7dpyqfq6rTzfkWCeyL"
 
 lookback_days: 7
