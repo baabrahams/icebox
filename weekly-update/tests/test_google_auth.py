@@ -92,3 +92,8 @@ def test_expired_token_no_refresh_triggers_browser(mock_exists, mock_makedirs, m
 
     mock_flow.run_local_server.assert_called_once()
     assert result == mock_new_creds
+
+
+def test_scopes_include_appdata():
+    """SCOPES must include drive.appdata for snapshot storage."""
+    assert "https://www.googleapis.com/auth/drive.appdata" in SCOPES

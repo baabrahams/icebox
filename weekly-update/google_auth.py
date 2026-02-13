@@ -9,6 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 SCOPES = [
     "https://www.googleapis.com/auth/drive.readonly",
     "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/drive.appdata",
 ]
 
 TOKEN_PATH = os.path.expanduser("~/.weekly-update/google_token.json")
