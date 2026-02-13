@@ -3,6 +3,8 @@
 import os
 import sys
 
+from datetime import datetime
+
 from config import load_config
 from sources.slack import fetch_channel_messages
 from sources.gdrive import fetch_recent_docs
@@ -19,12 +21,19 @@ def run(config, slack_client, drive_service, sheets_service, anthropic_client):
     print("Fetching Slack messages...")
     slack_data = {}
     for channel in config["slack"]["channels"]:
-        print(f"  {channel}")
         messages = fetch_channel_messages(slack_client, channel, lookback_days=lookback)
         if messages:
             slack_data[channel] = messages
+            print(f"  {channel}: {len(messages)} messages")
+            for msg in messages:
+                ts = datetime.fromtimestamp(float(msg["timestamp"])).strftime("%b %d %H:%M")
+                text = msg["text"]
+                preview = f"[{ts}] {msg['author']}: {text}"
+                if len(preview) > 80:
+                    preview = preview[:77] + "..."
+                print(f"    {preview}")
         else:
-            print(f"    No messages found, skipping.")
+            print(f"  {channel}: no messages, skipping.")
 
     # 2. Fetch Google Drive docs
     print("Fetching Google Drive docs...")
