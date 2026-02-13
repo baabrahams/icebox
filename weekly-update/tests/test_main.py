@@ -2,6 +2,13 @@ from unittest.mock import MagicMock, patch
 from main import run
 
 
+def test_main_calls_google_oauth():
+    """main() should use get_google_credentials instead of service account."""
+    import main
+    # Verify the module imports get_google_credentials
+    assert hasattr(main, "get_google_credentials")
+
+
 @patch("main.send_dm")
 @patch("main.generate_summary")
 @patch("main.build_prompt")

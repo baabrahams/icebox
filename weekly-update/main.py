@@ -8,6 +8,7 @@ from sources.slack import fetch_channel_messages
 from sources.gdrive import fetch_recent_docs
 from summarizer import build_prompt, generate_summary
 from delivery import send_dm
+from google_auth import get_google_credentials
 
 
 def run(config, slack_client, drive_service, sheets_service, anthropic_client):
@@ -67,20 +68,14 @@ def main():
         sys.exit(1)
     slack_client = WebClient(token=slack_token)
 
-    # Initialize Google services
-    from google.oauth2 import service_account
+    # Initialize Google services via OAuth
     from googleapiclient.discovery import build
-    sa_key_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY")
-    if not sa_key_path:
-        print("Error: GOOGLE_SERVICE_ACCOUNT_KEY environment variable not set.")
+    client_secret_path = os.path.join(os.path.dirname(__file__), "google_client_secret.json")
+    if not os.path.exists(client_secret_path):
+        print("Error: google_client_secret.json not found in project root.")
+        print("Download it from Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client ID.")
         sys.exit(1)
-    creds = service_account.Credentials.from_service_account_file(
-        sa_key_path,
-        scopes=[
-            "https://www.googleapis.com/auth/drive.readonly",
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-        ],
-    )
+    creds = get_google_credentials(client_secret_path)
     drive_service = build("drive", "v3", credentials=creds)
     sheets_service = build("sheets", "v4", credentials=creds)
 
