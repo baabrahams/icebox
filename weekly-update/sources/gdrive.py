@@ -1,7 +1,9 @@
 """Fetch recently modified Google Drive docs."""
 
 import difflib
+import json
 from datetime import datetime, timezone, timedelta
+from io import BytesIO
 
 
 def fetch_recent_docs(
@@ -173,3 +175,79 @@ def _compute_diff(old_text: str, new_text: str) -> str:
         return ""
 
     return "\n".join(diff_lines)
+
+
+def _load_sheet_snapshot(drive_service, sheet_id: str) -> list[list[str]] | None:
+    """Load a sheet snapshot from appDataFolder.
+
+    Returns the row data as a list of lists, or None if no snapshot exists.
+    """
+    try:
+        resp = drive_service.files().list(
+            spaces="appDataFolder",
+            q=f"name = 'sheet_snapshot_{sheet_id}.json'",
+            fields="files(id)",
+        ).execute()
+    except Exception as e:
+        print(f"  Warning: Could not search for sheet snapshot: {e}")
+        return None
+
+    files = resp.get("files", [])
+    if not files:
+        return None
+
+    snapshot_id = files[0]["id"]
+    try:
+        content = drive_service.files().get_media(fileId=snapshot_id).execute()
+        if isinstance(content, bytes):
+            data = json.loads(content.decode("utf-8"))
+        else:
+            data = json.loads(str(content))
+        return data.get("rows", None)
+    except Exception as e:
+        print(f"  Warning: Could not load sheet snapshot: {e}")
+        return None
+
+
+def _save_sheet_snapshot(drive_service, sheet_id: str, rows: list[list[str]]) -> None:
+    """Save a sheet snapshot to appDataFolder. Creates or updates."""
+    snapshot = {
+        "sheet_id": sheet_id,
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "rows": rows,
+    }
+    content = json.dumps(snapshot).encode("utf-8")
+    media = BytesIO(content)
+
+    # Check if snapshot already exists
+    try:
+        resp = drive_service.files().list(
+            spaces="appDataFolder",
+            q=f"name = 'sheet_snapshot_{sheet_id}.json'",
+            fields="files(id)",
+        ).execute()
+    except Exception as e:
+        print(f"  Warning: Could not save sheet snapshot: {e}")
+        return
+
+    files = resp.get("files", [])
+
+    try:
+        from googleapiclient.http import MediaIoBaseUpload
+        media_upload = MediaIoBaseUpload(media, mimetype="application/json")
+
+        if files:
+            drive_service.files().update(
+                fileId=files[0]["id"],
+                media_body=media_upload,
+            ).execute()
+        else:
+            drive_service.files().create(
+                body={
+                    "name": f"sheet_snapshot_{sheet_id}.json",
+                    "parents": ["appDataFolder"],
+                },
+                media_body=media_upload,
+            ).execute()
+    except Exception as e:
+        print(f"  Warning: Could not save sheet snapshot: {e}")
