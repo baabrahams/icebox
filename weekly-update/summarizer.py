@@ -31,9 +31,15 @@ def build_prompt(
     # Add Google Drive data
     for doc in gdrive_data:
         if doc.get("content_type") == "diff":
-            header = f'=== GOOGLE DOC: "{doc["name"]}" (changes from last {lookback_days} days) ==='
+            if doc.get("mime_type") == "application/vnd.google-apps.spreadsheet":
+                header = f'=== GOOGLE SHEET: "{doc["name"]}" (changes since last run) ==='
+            else:
+                header = f'=== GOOGLE DOC: "{doc["name"]}" (changes from last {lookback_days} days) ==='
         else:
-            header = f'=== GOOGLE DOC: "{doc["name"]}" (modified {doc["modified_time"][:10]}) ==='
+            if doc.get("mime_type") == "application/vnd.google-apps.spreadsheet":
+                header = f'=== GOOGLE SHEET: "{doc["name"]}" (modified {doc["modified_time"][:10]}) ==='
+            else:
+                header = f'=== GOOGLE DOC: "{doc["name"]}" (modified {doc["modified_time"][:10]}) ==='
         sources_parts.append(f"{header}\n{doc['content']}")
 
     if not sources_parts:

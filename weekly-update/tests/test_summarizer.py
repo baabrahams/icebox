@@ -100,3 +100,27 @@ def test_generate_summary_calls_claude():
     call_kwargs = mock_client.messages.create.call_args[1]
     assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
     assert result == "*Wins & Releases*\n- Shipped v2.0"
+
+
+def test_build_prompt_labels_sheet_diff():
+    """Sheet diffs should be labeled as GOOGLE SHEET with 'changes since last run'."""
+    gdrive_data = [
+        {
+            "name": "Sprint Tracker",
+            "content": 'Row 2: "Status" changed from "In Progress" to "Done"',
+            "modified_time": "2026-02-10T12:00:00Z",
+            "content_type": "diff",
+            "mime_type": "application/vnd.google-apps.spreadsheet",
+        },
+    ]
+
+    prompt = build_prompt(
+        slack_data={},
+        gdrive_data=gdrive_data,
+        template_path="prompt_template.txt",
+        lookback_days=7,
+    )
+
+    assert 'GOOGLE SHEET: "Sprint Tracker"' in prompt
+    assert "changes since last run" in prompt
+    assert "changed from" in prompt

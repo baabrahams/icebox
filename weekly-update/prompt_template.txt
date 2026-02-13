@@ -7,18 +7,27 @@ Use this exact structure with Slack-flavored markdown (use *bold* not **bold**):
 
 *Key Decisions*
 - Decisions made and their rationale, attributed to people when clear
+- Don't include information about eng handoff
 
 *Next Week's Focus*
 - What's coming up, priorities for the week ahead
+- Ignore information about sprint planning or grooming
 
 *Risks & Blockers*
-- Anything the audience should know about, flagged issues
+- Any flagged issues or risks to the project completing on time. Only include things that may slow things down for a week or more or require cross-functional input. 
+- Do not include bugs that can be fixed quickly
+- Don't include personal news or information like people who are out of office / on PTO
 
 Some Google Docs below may be shown as unified diffs rather than full content. In these diffs:
 - Lines starting with `+` are additions (new content)
 - Lines starting with `-` are removals (deleted content)
 - Lines without a prefix are unchanged context
 Focus on what was added or changed — these represent new decisions, updates, and progress.
+
+Some Google Sheets below may be shown as row-level change summaries rather than full content.
+These describe which rows were added, removed, or had cell values change.
+Focus on meaningful status changes and new entries.
+
 
 Here are the raw sources from the past {lookback_days} days:
 
