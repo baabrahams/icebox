@@ -28,16 +28,17 @@ def _format_sources(
         sources_parts.append("\n".join(lines))
 
     for doc in gdrive_data:
+        url_suffix = f" | {doc['url']}" if doc.get("url") else ""
         if doc.get("content_type") == "diff":
             if doc.get("mime_type") == "application/vnd.google-apps.spreadsheet":
-                header = f'=== GOOGLE SHEET: "{doc["name"]}" (changes since last run) ==='
+                header = f'=== GOOGLE SHEET: "{doc["name"]}" (changes since last run){url_suffix} ==='
             else:
-                header = f'=== GOOGLE DOC: "{doc["name"]}" (changes from last {lookback_days} days) ==='
+                header = f'=== GOOGLE DOC: "{doc["name"]}" (changes from last {lookback_days} days){url_suffix} ==='
         else:
             if doc.get("mime_type") == "application/vnd.google-apps.spreadsheet":
-                header = f'=== GOOGLE SHEET: "{doc["name"]}" (modified {doc["modified_time"][:10]}) ==='
+                header = f'=== GOOGLE SHEET: "{doc["name"]}" (modified {doc["modified_time"][:10]}){url_suffix} ==='
             else:
-                header = f'=== GOOGLE DOC: "{doc["name"]}" (modified {doc["modified_time"][:10]}) ==='
+                header = f'=== GOOGLE DOC: "{doc["name"]}" (modified {doc["modified_time"][:10]}){url_suffix} ==='
         sources_parts.append(f"{header}\n{doc['content']}")
 
     if not sources_parts:

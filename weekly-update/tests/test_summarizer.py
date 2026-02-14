@@ -103,6 +103,70 @@ def test_build_extraction_prompt_labels_sheet_diff():
     assert "changed from" in prompt
 
 
+def test_build_extraction_prompt_includes_doc_url_in_header():
+    """Source headers should include the doc URL when present."""
+    gdrive_data = [
+        {
+            "name": "Q1 Roadmap",
+            "content": "Launch feature X by March",
+            "modified_time": "2026-02-10T12:00:00Z",
+            "content_type": "full",
+            "url": "https://docs.google.com/document/d/abc123",
+        },
+    ]
+
+    prompt = build_extraction_prompt(
+        slack_data={},
+        gdrive_data=gdrive_data,
+        lookback_days=7,
+    )
+
+    assert "https://docs.google.com/document/d/abc123" in prompt
+
+
+def test_build_extraction_prompt_includes_sheet_url_in_header():
+    """Sheet source headers should include the sheet URL when present."""
+    gdrive_data = [
+        {
+            "name": "Sprint Tracker",
+            "content": 'Row 2: "Status" changed from "In Progress" to "Done"',
+            "modified_time": "2026-02-10T12:00:00Z",
+            "content_type": "diff",
+            "mime_type": "application/vnd.google-apps.spreadsheet",
+            "url": "https://docs.google.com/spreadsheets/d/sheet456",
+        },
+    ]
+
+    prompt = build_extraction_prompt(
+        slack_data={},
+        gdrive_data=gdrive_data,
+        lookback_days=7,
+    )
+
+    assert "https://docs.google.com/spreadsheets/d/sheet456" in prompt
+
+
+def test_build_extraction_prompt_no_url_field_still_works():
+    """Docs without a url field should still format correctly (backwards compat)."""
+    gdrive_data = [
+        {
+            "name": "Old Doc",
+            "content": "Some content",
+            "modified_time": "2026-02-10T12:00:00Z",
+            "content_type": "full",
+        },
+    ]
+
+    prompt = build_extraction_prompt(
+        slack_data={},
+        gdrive_data=gdrive_data,
+        lookback_days=7,
+    )
+
+    assert '=== GOOGLE DOC: "Old Doc"' in prompt
+    assert "Some content" in prompt
+
+
 def test_build_summary_prompt_includes_extracted_items():
     extracted = "- [WIN:MAJOR] Shipped v2.0\n- [RISK:MINOR] CI flaky"
 
