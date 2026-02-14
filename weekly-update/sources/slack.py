@@ -51,9 +51,19 @@ def fetch_channel_messages(client, channel_name: str, lookback_days: int = 7) ->
             continue  # Skip bot messages, join/leave, etc.
 
         user_id = msg.get("user", "")
+        text = msg["text"]
+        for att in msg.get("attachments", []):
+            att_text = att.get("text", "")
+            if not att_text:
+                continue
+            if att.get("is_msg_unfurl"):
+                text += "\n\n" + att_text
+            elif att.get("from_url"):
+                text += "\n\n" + att_text
+
         parent = {
             "author": resolve_user(user_id),
-            "text": msg["text"],
+            "text": text,
             "timestamp": msg["ts"],
             "replies": [],
         }
