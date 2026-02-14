@@ -16,8 +16,8 @@ Use this exact structure with Slack-flavored markdown (use *bold* not **bold**):
 
 Prioritization rules:
 - EVERY item tagged MAJOR must appear in the output. Do not skip any.
-- Include MINOR items only if the total stays within 10-15 bullets.
-- If you must cut to stay within 15 bullets, cut MINOR items first.
+- Include MINOR items only if the total stays within 10-18 bullets.
+- If you must cut to stay within 18 bullets, cut MINOR items first.
 - Preserve attribution (names) from the extracted items.
 - Do not add information that is not in the extracted list below.
 - Do not editorialize or add commentary beyond what is stated.

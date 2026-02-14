@@ -23,6 +23,7 @@ Ranking — tag each item as MAJOR or MINOR:
 
 Rules:
 - Extract EVERY distinct piece of information, even if it seems minor
+- Tag no more than 4 MAJOR items per category. If more than 4 items in a category could qualify as MAJOR, pick the 4 most impactful and tag the rest as MINOR.
 - One item per line — do not combine multiple facts
 - Use the original wording where possible, do not editorialize
 - Attribute to people when the source makes it clear
