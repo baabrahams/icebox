@@ -316,3 +316,75 @@ def test_fetch_recent_docs_sheet_with_diff():
     assert results[0]["name"] == "Sprint Tracker"
     assert results[0]["content_type"] == "diff"
     assert '"Status" changed from "In Progress" to "Done"' in results[0]["content"]
+
+
+def test_fetch_recent_docs_google_doc_includes_url():
+    """Google Doc results should include a url field with the Google Docs link."""
+    drive_service = _mock_drive_service(
+        files_list_result={
+            "files": [{
+                "id": "doc123",
+                "name": "Q1 Roadmap",
+                "mimeType": "application/vnd.google-apps.document",
+                "modifiedTime": "2026-02-10T12:00:00Z",
+            }],
+        },
+        export_content=b"Brand new document content",
+        revisions=[],
+    )
+
+    results = fetch_recent_docs(
+        drive_service=drive_service,
+        sheets_service=None,
+        folder_ids=["folder_abc"],
+        lookback_days=7,
+    )
+
+    assert len(results) == 1
+    assert results[0]["url"] == "https://docs.google.com/document/d/doc123"
+
+
+def test_fetch_recent_docs_google_sheet_includes_url():
+    """Google Sheet results should include a url field with the Google Sheets link."""
+    drive_service = _mock_drive_service(
+        files_list_result={
+            "files": [{
+                "id": "sheet456",
+                "name": "Sprint Tracker",
+                "mimeType": "application/vnd.google-apps.spreadsheet",
+                "modifiedTime": "2026-02-09T08:00:00Z",
+            }],
+        },
+    )
+    # Mock appDataFolder calls — no snapshot exists
+    def list_side_effect(**kwargs):
+        mock = MagicMock()
+        if "appDataFolder" in kwargs.get("spaces", ""):
+            mock.execute.return_value = {"files": []}
+        else:
+            mock.execute.return_value = {
+                "files": [{
+                    "id": "sheet456",
+                    "name": "Sprint Tracker",
+                    "mimeType": "application/vnd.google-apps.spreadsheet",
+                    "modifiedTime": "2026-02-09T08:00:00Z",
+                }],
+            }
+        return mock
+    drive_service.files().list.side_effect = list_side_effect
+    drive_service.files().create.return_value.execute.return_value = {"id": "new_snap"}
+
+    sheets_service = _mock_sheets_service([
+        ["Task", "Status"],
+        ["Build API", "Done"],
+    ])
+
+    results = fetch_recent_docs(
+        drive_service=drive_service,
+        sheets_service=sheets_service,
+        folder_ids=["folder_abc"],
+        lookback_days=7,
+    )
+
+    assert len(results) == 1
+    assert results[0]["url"] == "https://docs.google.com/spreadsheets/d/sheet456"

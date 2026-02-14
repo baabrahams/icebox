@@ -45,6 +45,9 @@ def fetch_recent_docs(
             result = _process_file(drive_service, sheets_service, f, lookback_days)
             if result is not None:
                 all_docs.append(result)
+            else:
+                print(f"  Found: {f['name']} (no new changes, skipping)")
+
 
     return all_docs
 
@@ -84,6 +87,7 @@ def _process_google_doc(drive_service, file_info: dict, lookback_days: int) -> d
             "modified_time": file_info["modifiedTime"],
             "mime_type": file_info["mimeType"],
             "content_type": "diff",
+            "url": f"https://docs.google.com/document/d/{file_id}",
         }
     else:
         # New doc or revision history unavailable — send full content
@@ -93,6 +97,7 @@ def _process_google_doc(drive_service, file_info: dict, lookback_days: int) -> d
             "modified_time": file_info["modifiedTime"],
             "mime_type": file_info["mimeType"],
             "content_type": "full",
+            "url": f"https://docs.google.com/document/d/{file_id}",
         }
 
 
@@ -130,6 +135,7 @@ def _process_google_sheet(drive_service, sheets_service, file_info: dict) -> dic
             "modified_time": file_info["modifiedTime"],
             "mime_type": file_info["mimeType"],
             "content_type": "diff",
+            "url": f"https://docs.google.com/spreadsheets/d/{sheet_id}",
         }
     else:
         # No snapshot — first run for this sheet, send full content
@@ -139,6 +145,7 @@ def _process_google_sheet(drive_service, sheets_service, file_info: dict) -> dic
             "modified_time": file_info["modifiedTime"],
             "mime_type": file_info["mimeType"],
             "content_type": "full",
+            "url": f"https://docs.google.com/spreadsheets/d/{sheet_id}",
         }
 
 
