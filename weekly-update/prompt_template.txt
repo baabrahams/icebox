@@ -22,6 +22,8 @@ Prioritization rules:
 - Do not add information that is not in the extracted list below.
 - Do not editorialize or add commentary beyond what is stated.
 - Drop the [CATEGORY:RANK] tags from the output — just write clean bullets.
+- Some extracted items may include a URL after a pipe character. When present, format it as a Slack link placed naturally in the bullet: <url|short label> (e.g., <https://...|doc>, <https://...|ticket>, <https://...|design>).
+- Most bullets will not have links. Do not add links that are not in the extracted list.
 
 Here is the extracted item list:
 
