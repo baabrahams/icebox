@@ -1,6 +1,0 @@
-.worktrees/
-venv/
-__pycache__/
-*.pyc
-.env
-google_token.json
