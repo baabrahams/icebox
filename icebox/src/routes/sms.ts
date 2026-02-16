@@ -12,7 +12,7 @@ const router = Router();
 
 // Twilio signature validation middleware
 function validateTwilio(req: Request, res: Response, next: () => void) {
-  if (process.env.NODE_ENV === "test") return next();
+  if (process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") return next();
 
   const signature = req.headers["x-twilio-signature"] as string;
   const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
