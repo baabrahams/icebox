@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { findOrCreateByPhone } from "../users.js";
+import { findOrCreateByPhone, updateUser } from "../users.js";
 import { getTestPool, cleanDb } from "../test-helpers.js";
 import type pg from "pg";
 
@@ -29,5 +29,13 @@ describe("findOrCreateByPhone", () => {
     const first = await findOrCreateByPhone(pool, "+15551234567");
     const second = await findOrCreateByPhone(pool, "+15551234567");
     expect(first.id).toBe(second.id);
+  });
+});
+
+describe("updateUser", () => {
+  it("updates weeknight_time_minutes", async () => {
+    const user = await findOrCreateByPhone(pool, "+15551234567");
+    const updated = await updateUser(pool, user.id, { weeknight_time_minutes: 15 });
+    expect(updated.weeknight_time_minutes).toBe(15);
   });
 });

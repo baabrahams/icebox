@@ -5,6 +5,7 @@ export interface User {
   phone_number: string;
   household_size: number | null;
   interview_time: string;
+  weeknight_time_minutes: number;
   timezone: string;
   onboarding_complete: boolean;
   created_at: Date;
@@ -25,7 +26,7 @@ export async function findOrCreateByPhone(pool: pg.Pool, phone: string): Promise
 export async function updateUser(
   pool: pg.Pool,
   userId: string,
-  fields: Partial<Pick<User, "household_size" | "interview_time" | "timezone" | "onboarding_complete">>
+  fields: Partial<Pick<User, "household_size" | "interview_time" | "weeknight_time_minutes" | "timezone" | "onboarding_complete">>
 ): Promise<User> {
   const sets: string[] = [];
   const values: unknown[] = [];
