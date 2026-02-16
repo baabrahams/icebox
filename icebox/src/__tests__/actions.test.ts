@@ -4,6 +4,7 @@ import { findOrCreateByPhone } from "../db/users.js";
 import { getItems } from "../db/pantry.js";
 import { getRestrictions } from "../db/dietary.js";
 import { createLog, getOpenSuggestion } from "../db/dinner-logs.js";
+import { getSourcesForUser } from "../db/recipe-sources.js";
 import { getTestPool, cleanDb } from "../db/test-helpers.js";
 import type pg from "pg";
 import type { Actions } from "../claude.js";
@@ -64,5 +65,20 @@ describe("executeActions", () => {
     expect(open).toBeNull();
     const items = await getItems(pool, user.id);
     expect(items).toHaveLength(0);
+  });
+
+  it("adds recipe sources", async () => {
+    const user = await findOrCreateByPhone(pool, "+15551234567");
+    await executeActions(pool, user.id, { add_recipe_source: ["NYT Cooking", "Bon Appetit"] });
+    const sources = await getSourcesForUser(pool, user.id);
+    expect(sources).toEqual(["bon appetit", "nyt cooking"]);
+  });
+
+  it("removes recipe sources", async () => {
+    const user = await findOrCreateByPhone(pool, "+15551234567");
+    await executeActions(pool, user.id, { add_recipe_source: ["NYT Cooking", "Bon Appetit"] });
+    await executeActions(pool, user.id, { remove_recipe_source: ["NYT Cooking"] });
+    const sources = await getSourcesForUser(pool, user.id);
+    expect(sources).toEqual(["bon appetit"]);
   });
 });

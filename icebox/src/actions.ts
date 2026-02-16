@@ -4,6 +4,7 @@ import { addItems, removeItems } from "./db/pantry.js";
 import { addRestriction } from "./db/dietary.js";
 import { updateUser } from "./db/users.js";
 import { createLog, getOpenSuggestion, updateLogStatus } from "./db/dinner-logs.js";
+import { addSource, removeSource } from "./db/recipe-sources.js";
 
 export async function executeActions(pool: pg.Pool, userId: string, actions: Actions): Promise<void> {
   if (actions.add_pantry?.length) {
@@ -37,5 +38,17 @@ export async function executeActions(pool: pg.Pool, userId: string, actions: Act
 
   if (actions.remove_dinner_items?.length) {
     await removeItems(pool, userId, actions.remove_dinner_items);
+  }
+
+  if (actions.add_recipe_source?.length) {
+    for (const source of actions.add_recipe_source) {
+      await addSource(pool, userId, source);
+    }
+  }
+
+  if (actions.remove_recipe_source?.length) {
+    for (const source of actions.remove_recipe_source) {
+      await removeSource(pool, userId, source);
+    }
   }
 }

@@ -16,12 +16,15 @@ export interface Actions {
   update_user?: Partial<{
     household_size: number;
     interview_time: string;
+    weeknight_time_minutes: number;
     timezone: string;
     onboarding_complete: boolean;
   }>;
   log_dinner?: { recipe_name: string; recipe_source?: string };
   update_dinner_status?: { status: "made" | "skipped"; rating?: number };
   remove_dinner_items?: string[];
+  add_recipe_source?: string[];
+  remove_recipe_source?: string[];
 }
 
 export async function chat(
