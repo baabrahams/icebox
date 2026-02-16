@@ -3,6 +3,7 @@ import { loadUserContext } from "../context.js";
 import { findOrCreateByPhone } from "../db/users.js";
 import { addItems } from "../db/pantry.js";
 import { addRestriction } from "../db/dietary.js";
+import { addSource } from "../db/recipe-sources.js";
 import { getTestPool, cleanDb } from "../db/test-helpers.js";
 import type pg from "pg";
 
@@ -25,5 +26,15 @@ describe("loadUserContext", () => {
     expect(ctx.recentDinners).toHaveLength(0);
     expect(ctx.openSuggestion).toBeNull();
     expect(ctx.recentMessages).toHaveLength(0);
+  });
+
+  it("includes recipe sources and weeknight time", async () => {
+    const user = await findOrCreateByPhone(pool, "+15551234567");
+    await addSource(pool, user.id, "NYT Cooking");
+    await addSource(pool, user.id, "Bon Appetit");
+
+    const ctx = await loadUserContext(pool, user.id);
+    expect(ctx.recipeSources).toEqual(["bon appetit", "nyt cooking"]);
+    expect(ctx.user.weeknight_time_minutes).toBe(30); // default
   });
 });
