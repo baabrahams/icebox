@@ -7,6 +7,7 @@ export function getTestPool() {
 }
 
 export async function cleanDb(pool: pg.Pool) {
+  await pool.query("DELETE FROM recipe_sources");
   await pool.query("DELETE FROM dinner_logs");
   await pool.query("DELETE FROM conversation_history");
   await pool.query("DELETE FROM pantry_items");
